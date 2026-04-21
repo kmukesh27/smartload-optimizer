@@ -1,11 +1,14 @@
 package com.smartload.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.smartload.model.ParetoSolution;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record OptimizeResponse(
         @JsonProperty("truck_id")
         String truckId,
@@ -26,10 +29,42 @@ public record OptimizeResponse(
         double utilizationWeightPercent,
 
         @JsonProperty("utilization_volume_percent")
-        double utilizationVolumePercent
+        double utilizationVolumePercent,
+
+        @JsonProperty("algorithm_used")
+        String algorithmUsed,
+
+        @JsonProperty("pareto_solutions")
+        List<ParetoSolutionDto> paretoSolutions
 ) {
     /**
-     * Factory method that computes utilization automatically.
+     * DTO for Pareto solutions in the response.
+     */
+    public record ParetoSolutionDto(
+            @JsonProperty("order_ids")
+            List<String> orderIds,
+
+            @JsonProperty("total_payout_cents")
+            long totalPayoutCents,
+
+            @JsonProperty("utilization_weight_percent")
+            double utilizationWeightPercent,
+
+            @JsonProperty("utilization_volume_percent")
+            double utilizationVolumePercent
+    ) {
+        public static ParetoSolutionDto from(ParetoSolution solution) {
+            return new ParetoSolutionDto(
+                    solution.orderIds(),
+                    solution.totalPayoutCents(),
+                    round2(solution.utilizationWeightPercent()),
+                    round2(solution.utilizationVolumePercent())
+            );
+        }
+    }
+
+    /**
+     * Factory method that computes utilization automatically (legacy, no Pareto).
      */
     public static OptimizeResponse of(
             String truckId,
@@ -40,12 +75,36 @@ public record OptimizeResponse(
             long maxWeightLbs,
             long maxVolumeCuft
     ) {
+        return of(truckId, selectedOrderIds, totalPayoutCents, totalWeightLbs, totalVolumeCuft,
+                maxWeightLbs, maxVolumeCuft, "BITMASK_DP", null);
+    }
+
+    /**
+     * Factory method with algorithm and Pareto solutions.
+     */
+    public static OptimizeResponse of(
+            String truckId,
+            List<String> selectedOrderIds,
+            long totalPayoutCents,
+            long totalWeightLbs,
+            long totalVolumeCuft,
+            long maxWeightLbs,
+            long maxVolumeCuft,
+            String algorithmUsed,
+            List<ParetoSolution> paretoSolutions
+    ) {
         double weightPct = round2((double) totalWeightLbs / maxWeightLbs * 100.0);
         double volumePct = round2((double) totalVolumeCuft / maxVolumeCuft * 100.0);
+
+        List<ParetoSolutionDto> paretoDtos = paretoSolutions != null
+                ? paretoSolutions.stream().map(ParetoSolutionDto::from).toList()
+                : null;
+
         return new OptimizeResponse(
                 truckId, selectedOrderIds,
                 totalPayoutCents, totalWeightLbs, totalVolumeCuft,
-                weightPct, volumePct
+                weightPct, volumePct,
+                algorithmUsed, paretoDtos
         );
     }
 

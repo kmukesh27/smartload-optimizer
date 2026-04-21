@@ -1,7 +1,9 @@
 package com.smartload.service;
 
+import com.smartload.model.OptimizationMode;
 import com.smartload.model.OptimizationResult;
 import com.smartload.model.Order;
+import com.smartload.model.ParetoSolution;
 import com.smartload.model.Truck;
 import org.springframework.stereotype.Service;
 
@@ -11,7 +13,19 @@ import java.util.List;
 @Service
 public class LoadOptimizerService {
 
+    private static final int MAX_PARETO_SOLUTIONS = 10;
+
+    /**
+     * Optimize using default MAX_REVENUE mode.
+     */
     public OptimizationResult optimize(Truck truck, List<Order> orders) {
+        return optimize(truck, orders, OptimizationMode.MAX_REVENUE);
+    }
+
+    /**
+     * Optimize with configurable optimization mode.
+     */
+    public OptimizationResult optimize(Truck truck, List<Order> orders, OptimizationMode mode) {
         if (orders.isEmpty()) {
             return OptimizationResult.empty();
         }
@@ -19,8 +33,9 @@ public class LoadOptimizerService {
         int n = orders.size();
         Order[] arr = orders.toArray(new Order[0]);
 
-        long bestPayout = 0L;
+        double bestScore = Double.NEGATIVE_INFINITY;
         int bestMask = 0;
+        long bestPayout = 0L;
         long bestWeight = 0L;
         long bestVolume = 0L;
 
@@ -30,6 +45,7 @@ public class LoadOptimizerService {
             long weight = 0L;
             long volume = 0L;
             long payout = 0L;
+            boolean valid = true;
 
             for (int i = 0; i < n; i++) {
                 if ((mask & (1 << i)) != 0) {
@@ -38,15 +54,22 @@ public class LoadOptimizerService {
                     payout += arr[i].payoutCents();
 
                     if (weight > truck.maxWeightLbs() || volume > truck.maxVolumeCuft()) {
-                        payout = -1;
+                        valid = false;
                         break;
                     }
                 }
             }
 
-            if (payout > bestPayout) {
-                bestPayout = payout;
+            if (!valid) {
+                continue;
+            }
+
+            double score = calculateScore(payout, weight, volume, truck, mode);
+
+            if (score > bestScore) {
+                bestScore = score;
                 bestMask = mask;
+                bestPayout = payout;
                 bestWeight = weight;
                 bestVolume = volume;
             }
@@ -65,4 +88,124 @@ public class LoadOptimizerService {
 
         return new OptimizationResult(selected, bestPayout, bestWeight, bestVolume);
     }
+
+    /**
+     * Find all Pareto-optimal solutions.
+     * A solution is Pareto-optimal if no other solution is better in ALL objectives.
+     */
+    public List<ParetoSolution> findParetoOptimalSolutions(Truck truck, List<Order> orders) {
+        if (orders.isEmpty()) {
+            return List.of();
+        }
+
+        int n = orders.size();
+        Order[] arr = orders.toArray(new Order[0]);
+
+        // Collect all valid solutions
+        List<SolutionCandidate> candidates = new ArrayList<>();
+        int totalMasks = 1 << n;
+
+        for (int mask = 1; mask < totalMasks; mask++) {
+            long weight = 0L;
+            long volume = 0L;
+            long payout = 0L;
+            boolean valid = true;
+
+            for (int i = 0; i < n; i++) {
+                if ((mask & (1 << i)) != 0) {
+                    weight += arr[i].weightLbs();
+                    volume += arr[i].volumeCuft();
+                    payout += arr[i].payoutCents();
+
+                    if (weight > truck.maxWeightLbs() || volume > truck.maxVolumeCuft()) {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+
+            if (valid) {
+                double weightUtil = (double) weight / truck.maxWeightLbs() * 100.0;
+                double volumeUtil = (double) volume / truck.maxVolumeCuft() * 100.0;
+
+                List<String> orderIds = new ArrayList<>();
+                for (int i = 0; i < n; i++) {
+                    if ((mask & (1 << i)) != 0) {
+                        orderIds.add(arr[i].id());
+                    }
+                }
+
+                candidates.add(new SolutionCandidate(orderIds, payout, weightUtil, volumeUtil));
+            }
+        }
+
+        // Filter to non-dominated set (Pareto frontier)
+        List<ParetoSolution> paretoSet = new ArrayList<>();
+
+        for (SolutionCandidate candidate : candidates) {
+            ParetoSolution solution = new ParetoSolution(
+                    candidate.orderIds,
+                    candidate.payout,
+                    candidate.weightUtil,
+                    candidate.volumeUtil
+            );
+
+            boolean isDominated = false;
+            for (SolutionCandidate other : candidates) {
+                if (other == candidate) continue;
+
+                ParetoSolution otherSolution = new ParetoSolution(
+                        other.orderIds, other.payout, other.weightUtil, other.volumeUtil
+                );
+
+                if (otherSolution.dominates(solution)) {
+                    isDominated = true;
+                    break;
+                }
+            }
+
+            if (!isDominated) {
+                paretoSet.add(solution);
+            }
+        }
+
+        // Sort by payout descending and limit to top N
+        paretoSet.sort((a, b) -> Long.compare(b.totalPayoutCents(), a.totalPayoutCents()));
+
+        if (paretoSet.size() > MAX_PARETO_SOLUTIONS) {
+            return paretoSet.subList(0, MAX_PARETO_SOLUTIONS);
+        }
+
+        return paretoSet;
+    }
+
+    /**
+     * Calculate score based on optimization mode.
+     */
+    private double calculateScore(long payout, long weight, long volume, Truck truck, OptimizationMode mode) {
+        double weightUtil = (double) weight / truck.maxWeightLbs();
+        double volumeUtil = (double) volume / truck.maxVolumeCuft();
+        double avgUtil = (weightUtil + volumeUtil) / 2.0;
+
+        return switch (mode) {
+            case MAX_REVENUE -> payout;
+            case MAX_UTILIZATION -> avgUtil * 1_000_000; // Scale up for comparison
+            case BALANCED -> {
+                // Normalize payout to [0, 1] range (approximate based on typical values)
+                // Using a large divisor to normalize; actual normalization would need max possible payout
+                double normalizedPayout = payout / 1_000_000.0;
+                yield 0.6 * normalizedPayout + 0.4 * avgUtil;
+            }
+        };
+    }
+
+    /**
+     * Internal helper class for Pareto candidate tracking.
+     */
+    private record SolutionCandidate(
+            List<String> orderIds,
+            long payout,
+            double weightUtil,
+            double volumeUtil
+    ) {}
 }

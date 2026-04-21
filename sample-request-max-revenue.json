@@ -1,0 +1,43 @@
+{
+    "truck": {
+        "id": "T1",
+        "max_weight_lbs": 1000,
+        "max_volume_cuft": 500
+    },
+    "orders": [
+        {
+            "id": "PREMIUM1",
+            "payout_cents": 50000,
+            "weight_lbs": 150,
+            "volume_cuft": 75,
+            "origin": "NYC",
+            "destination": "LA",
+            "pickup_date": "2026-04-22",
+            "delivery_date": "2026-04-25",
+            "is_hazmat": false
+        },
+        {
+            "id": "BULK1",
+            "payout_cents": 2000,
+            "weight_lbs": 450,
+            "volume_cuft": 225,
+            "origin": "NYC",
+            "destination": "LA",
+            "pickup_date": "2026-04-22",
+            "delivery_date": "2026-04-25",
+            "is_hazmat": false
+        },
+        {
+            "id": "BULK2",
+            "payout_cents": 2000,
+            "weight_lbs": 450,
+            "volume_cuft": 225,
+            "origin": "NYC",
+            "destination": "LA",
+            "pickup_date": "2026-04-22",
+            "delivery_date": "2026-04-25",
+            "is_hazmat": false
+        }
+    ],
+    "optimization_mode": "MAX_REVENUE"
+}
