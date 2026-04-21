@@ -25,9 +25,10 @@ curl http://localhost:8080/actuator/health
 
 ---
 
-Following are the Various Test Cases
-
 ## Example Request -- Default
+
+Default behavior using BITMASK_DP algorithm with MAX_REVENUE optimization.
+Selects orders that maximize total payout while respecting truck capacity constraints. 
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \
@@ -51,6 +52,9 @@ curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \
 ```
 
 ## Example Request -- MAX_REVENUE mode
+
+Prioritizes highest-paying orders even if truck space is underutilized.
+Picks PREMIUM1+BULK1 ($520 payout, 60% util) over BULK1+BULK2 ($40 payout, 90% util). 
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \
@@ -76,6 +80,9 @@ curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \
 
 ## Example Request -- MAX_UTILIZATION mode
 
+Prioritizes filling truck capacity (weight + volume) over revenue.
+Picks BULK1+BULK2 (90% utilization) instead of higher-paying but smaller orders.
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \
   -H "Content-Type: application/json" \
@@ -99,6 +106,9 @@ curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \
 ```
 
 ## Example Request -- BALANCED mode  
+
+Weighted combination: 60% revenue + 40% utilization score.
+Finds middle ground between maximizing payout and filling truck capacity.
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \
@@ -126,6 +136,9 @@ curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \
 ```
 
 ## Example Request -- With Pareto solutions included
+
+Returns all non-dominated solutions where no other option is better in ALL objectives.
+Shows trade-offs: higher payout vs higher utilization — user can pick based on preference.
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \
@@ -187,6 +200,9 @@ curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \
 
 ## Example Request -- BACKTRACKING algorithm
 
+Uses recursive backtracking with pruning instead of bitmask enumeration.
+Sorts by efficiency (payout/weight) and prunes branches that can't beat current best.
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \
   -H "Content-Type: application/json" \
@@ -214,6 +230,9 @@ curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \
 
 
 ## Example Request -- All features combined (BALANCED + Pareto + BACKTRACKING)
+
+Combines all bonus features: BALANCED scoring, Pareto frontier, and backtracking algorithm. 
+Demonstrates full API capability with weighted optimization and multiple solution options.  
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/load-optimizer/optimize \

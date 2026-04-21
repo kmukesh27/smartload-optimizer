@@ -6,6 +6,7 @@ import com.smartload.model.OptimizationResult;
 import com.smartload.model.Order;
 import com.smartload.model.ParetoSolution;
 import com.smartload.model.Truck;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -29,6 +30,7 @@ public class OptimizationPipelineService {
         this.backtrackingOptimizer = backtrackingOptimizer;
     }
 
+    @Cacheable(value = "optimizationResults", key = "#request.hashCode()")
     public OptimizeResponse execute(OptimizeRequest request) {
         // 1. Validate payload size
         orderMapper.validateRequest(request);

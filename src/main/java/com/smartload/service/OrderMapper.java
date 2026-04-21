@@ -3,6 +3,7 @@ package com.smartload.service;
 import com.smartload.dto.OptimizeRequest;
 import com.smartload.dto.OrderRequest;
 import com.smartload.dto.TruckRequest;
+import com.smartload.exception.PayloadTooLargeException;
 import com.smartload.exception.ValidationException;
 import com.smartload.model.Order;
 import com.smartload.model.Truck;
@@ -69,7 +70,7 @@ public class OrderMapper {
 
     public void validateRequest(OptimizeRequest request) {
         if (request.orders() != null && request.orders().size() > 22) {
-            throw new ValidationException(
+            throw new PayloadTooLargeException(
                     "Too many orders: maximum 22 allowed, received " + request.orders().size());
         }
     }

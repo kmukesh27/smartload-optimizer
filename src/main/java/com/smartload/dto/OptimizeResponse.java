@@ -37,9 +37,7 @@ public record OptimizeResponse(
         @JsonProperty("pareto_solutions")
         List<ParetoSolutionDto> paretoSolutions
 ) {
-    /**
-     * DTO for Pareto solutions in the response.
-     */
+    
     public record ParetoSolutionDto(
             @JsonProperty("order_ids")
             List<String> orderIds,
@@ -63,9 +61,6 @@ public record OptimizeResponse(
         }
     }
 
-    /**
-     * Factory method that computes utilization automatically (legacy, no Pareto).
-     */
     public static OptimizeResponse of(
             String truckId,
             List<String> selectedOrderIds,
@@ -79,9 +74,6 @@ public record OptimizeResponse(
                 maxWeightLbs, maxVolumeCuft, "BITMASK_DP", null);
     }
 
-    /**
-     * Factory method with algorithm and Pareto solutions.
-     */
     public static OptimizeResponse of(
             String truckId,
             List<String> selectedOrderIds,

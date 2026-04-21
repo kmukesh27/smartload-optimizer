@@ -15,16 +15,10 @@ public class LoadOptimizerService {
 
     private static final int MAX_PARETO_SOLUTIONS = 10;
 
-    /**
-     * Optimize using default MAX_REVENUE mode.
-     */
     public OptimizationResult optimize(Truck truck, List<Order> orders) {
         return optimize(truck, orders, OptimizationMode.MAX_REVENUE);
     }
 
-    /**
-     * Optimize with configurable optimization mode.
-     */
     public OptimizationResult optimize(Truck truck, List<Order> orders, OptimizationMode mode) {
         if (orders.isEmpty()) {
             return OptimizationResult.empty();
@@ -89,10 +83,6 @@ public class LoadOptimizerService {
         return new OptimizationResult(selected, bestPayout, bestWeight, bestVolume);
     }
 
-    /**
-     * Find all Pareto-optimal solutions.
-     * A solution is Pareto-optimal if no other solution is better in ALL objectives.
-     */
     public List<ParetoSolution> findParetoOptimalSolutions(Truck truck, List<Order> orders) {
         if (orders.isEmpty()) {
             return List.of();
@@ -101,7 +91,6 @@ public class LoadOptimizerService {
         int n = orders.size();
         Order[] arr = orders.toArray(new Order[0]);
 
-        // Collect all valid solutions
         List<SolutionCandidate> candidates = new ArrayList<>();
         int totalMasks = 1 << n;
 
@@ -139,7 +128,6 @@ public class LoadOptimizerService {
             }
         }
 
-        // Filter to non-dominated set (Pareto frontier)
         List<ParetoSolution> paretoSet = new ArrayList<>();
 
         for (SolutionCandidate candidate : candidates) {
@@ -169,7 +157,6 @@ public class LoadOptimizerService {
             }
         }
 
-        // Sort by payout descending and limit to top N
         paretoSet.sort((a, b) -> Long.compare(b.totalPayoutCents(), a.totalPayoutCents()));
 
         if (paretoSet.size() > MAX_PARETO_SOLUTIONS) {
@@ -179,9 +166,6 @@ public class LoadOptimizerService {
         return paretoSet;
     }
 
-    /**
-     * Calculate score based on optimization mode.
-     */
     private double calculateScore(long payout, long weight, long volume, Truck truck, OptimizationMode mode) {
         double weightUtil = (double) weight / truck.maxWeightLbs();
         double volumeUtil = (double) volume / truck.maxVolumeCuft();
@@ -189,19 +173,14 @@ public class LoadOptimizerService {
 
         return switch (mode) {
             case MAX_REVENUE -> payout;
-            case MAX_UTILIZATION -> avgUtil * 1_000_000; // Scale up for comparison
+            case MAX_UTILIZATION -> avgUtil * 1_000_000;
             case BALANCED -> {
-                // Normalize payout to [0, 1] range (approximate based on typical values)
-                // Using a large divisor to normalize; actual normalization would need max possible payout
                 double normalizedPayout = payout / 1_000_000.0;
                 yield 0.6 * normalizedPayout + 0.4 * avgUtil;
             }
         };
     }
 
-    /**
-     * Internal helper class for Pareto candidate tracking.
-     */
     private record SolutionCandidate(
             List<String> orderIds,
             long payout,

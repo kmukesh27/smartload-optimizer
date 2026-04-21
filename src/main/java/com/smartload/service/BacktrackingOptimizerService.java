@@ -10,11 +10,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * Recursive backtracking optimizer with pruning.
- * Sorts orders by efficiency (payout/weight ratio) and prunes branches
- * when constraints are violated or when upper bound cannot beat current best.
- */
 @Service
 public class BacktrackingOptimizerService {
 
@@ -22,20 +17,18 @@ public class BacktrackingOptimizerService {
     private long bestWeight;
     private long bestVolume;
     private List<Order> bestSelection;
-    private long[] suffixPayoutSum; // suffixPayoutSum[i] = sum of payouts from index i to n-1
+    private long[] suffixPayoutSum; 
 
     public OptimizationResult optimize(Truck truck, List<Order> orders) {
         if (orders.isEmpty()) {
             return OptimizationResult.empty();
         }
 
-        // Sort by efficiency (payout per unit weight) descending
         Order[] sortedOrders = orders.toArray(new Order[0]);
         Arrays.sort(sortedOrders, Comparator.comparingDouble(
                 (Order o) -> (double) o.payoutCents() / Math.max(1, o.weightLbs())
         ).reversed());
 
-        // Precompute suffix payout sums for upper bound pruning
         int n = sortedOrders.length;
         suffixPayoutSum = new long[n + 1];
         suffixPayoutSum[n] = 0;
@@ -66,7 +59,6 @@ public class BacktrackingOptimizerService {
             List<Order> currentSelection,
             Truck truck
     ) {
-        // Update best if current is better
         if (currentPayout > bestPayout) {
             bestPayout = currentPayout;
             bestWeight = currentWeight;
@@ -74,21 +66,17 @@ public class BacktrackingOptimizerService {
             bestSelection = new ArrayList<>(currentSelection);
         }
 
-        // Base case: processed all orders
         if (index >= orders.length) {
             return;
         }
 
-        // Pruning: upper bound check
-        // Even if we take all remaining orders, can we beat best?
         long upperBound = currentPayout + suffixPayoutSum[index];
         if (upperBound <= bestPayout) {
-            return; // Prune this branch
+            return;
         }
 
         Order order = orders[index];
 
-        // Option 1: Include this order (if it fits)
         long newWeight = currentWeight + order.weightLbs();
         long newVolume = currentVolume + order.volumeCuft();
 
@@ -99,7 +87,6 @@ public class BacktrackingOptimizerService {
             currentSelection.remove(currentSelection.size() - 1);
         }
 
-        // Option 2: Exclude this order
         backtrack(orders, index + 1, currentWeight, currentVolume,
                 currentPayout, currentSelection, truck);
     }

@@ -37,12 +37,20 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(400, "Bad Request", "Malformed JSON: " + ex.getMostSpecificCause().getMessage()));
     }
 
-    /** Domain-level validation errors (duplicate ids, bad dates, too many orders) */
+    /** Domain-level validation errors (duplicate ids, bad dates) */
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ErrorResponse> handleValidation(ValidationException ex) {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse.of(400, "Bad Request", ex.getMessage()));
+    }
+
+    /** Payload too large (e.g., orders > 22) */
+    @ExceptionHandler(PayloadTooLargeException.class)
+    public ResponseEntity<ErrorResponse> handlePayloadTooLarge(PayloadTooLargeException ex) {
+        return ResponseEntity
+                .status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ErrorResponse.of(413, "Payload Too Large", ex.getMessage()));
     }
 
     /** Catch-all */
